@@ -11,7 +11,30 @@ from .icons import app_icon
 from .widgets.main_window import MainWindow
 
 
+def _register_windows_app_id() -> None:
+    """Tell Windows this process is its own app, not python.exe.
+
+    Without this, Windows groups every PyQt program under the Python
+    interpreter's taskbar entry and uses python.exe's icon — so even
+    after setWindowIcon() the bottom bar still shows a snake. Setting
+    an explicit AppUserModelID fixes it (must happen before the first
+    window is shown). Linux / macOS don't need this."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "com.lshift.objpaper.v1"
+        )
+    except Exception:
+        # The call is purely cosmetic; never let it crash the app.
+        pass
+
+
 def main() -> int:
+    _register_windows_app_id()
+
     app = QApplication(sys.argv)
     app.setApplicationName("obj.Paper")
     app.setApplicationVersion(__version__)
