@@ -56,7 +56,6 @@ from .palette import Palette
 from .preview import Preview
 from .settings_panel import SettingsPanel
 from .status_bar import StatusBar
-from .title_strip import TitleStrip
 from .toolbar import TopToolbar
 
 
@@ -129,16 +128,14 @@ class MainWindow(QMainWindow):
         body_lay.addWidget(self._palette)
         body_lay.addWidget(self._splitter, 1)
 
-        # central — order: TitleStrip → Toolbar → 3-pane body
-        self._title_strip = TitleStrip(self._doc)
-
+        # central — Toolbar → 3-pane body. The OS native title bar shows
+        # the file name (set via setWindowTitle); we don't draw our own.
         central = QWidget()
         central.setObjectName("central")
         central.setStyleSheet(f"QWidget#central{{background:{T.BG};}}")
         cl = QVBoxLayout(central)
         cl.setContentsMargins(0, 0, 0, 0)
         cl.setSpacing(0)
-        cl.addWidget(self._title_strip)
         cl.addWidget(self._toolbar)
         cl.addWidget(body, 1)
         self.setCentralWidget(central)
@@ -272,10 +269,19 @@ class MainWindow(QMainWindow):
     # title / state
     # ------------------------------------------------------------------
     def _refresh_title(self) -> None:
+        # OS title bars (Windows / macOS / GNOME / KDE) already prefix or
+        # suffix the application name themselves, so we keep the window
+        # title to just `<filename> ●` to avoid `obj.Paper — file - obj.Paper`
+        # style duplication.
         path = self._doc.path
         name = os.path.basename(path) if path else t("dialog.untitled")
         marker = " ●" if self._doc.dirty else ""
         self.setWindowTitle(f"obj.Paper — {name}{marker}")
+        # `windowFilePath` lets macOS show the proxy icon and the platform
+        # add the standard " - <displayName>" suffix only when the OS does
+        # so natively, instead of Qt forcing it.
+        if path:
+            self.setWindowFilePath(path)
 
     def _on_doc_changed(self) -> None:
         self._toolbar.update_context(self._doc.settings)
@@ -566,7 +572,6 @@ class MainWindow(QMainWindow):
             self._palette.hide()
             self._preview.hide()
             self._toolbar.hide()
-            self._title_strip.hide()
             self.statusBar().hide()
             self.menuBar().setVisible(False)
             self.showFullScreen()
@@ -574,7 +579,6 @@ class MainWindow(QMainWindow):
             self._palette.show()
             self._preview.show()
             self._toolbar.show()
-            self._title_strip.show()
             self.statusBar().show()
             self.menuBar().setVisible(True)
             self.showNormal()
