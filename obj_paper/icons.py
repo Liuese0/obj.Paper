@@ -188,8 +188,8 @@ def svg_pixmap(name: str, size: int = 12, color: str = "#7A7268") -> QPixmap:
 
 
 # ---------- application icon ----------
-# Square 256×256 mark built from the LShift brand chevrons (`«` doubled).
-# Pure paths so we don't depend on any system font being installed.
+# Square 256×256 mark — a single LShift `«` chevron (the `<<` brand symbol)
+# centered on the parchment card. Pure paths, no font dependencies.
 _APP_ICON_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">'
     '<defs>'
@@ -198,23 +198,17 @@ _APP_ICON_SVG = (
     '<stop offset="1" stop-color="#E8E2CF"/>'
     '</linearGradient>'
     '</defs>'
-    # rounded card
+    # rounded card + subtle inner stroke
     '<rect x="0" y="0" width="256" height="256" rx="52" ry="52" fill="url(#bg)"/>'
     '<rect x="2" y="2" width="252" height="252" rx="50" ry="50" fill="none" '
     'stroke="#D8D3C9" stroke-width="2"/>'
-    # top «
-    '<g stroke="#D97757" stroke-width="22" fill="none" '
+    # single « chevron — two stroked Vs side by side
+    '<g stroke="#D97757" stroke-width="30" fill="none" '
     'stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M120 56 L70 100 L120 144"/>'
-    '<path d="M186 56 L136 100 L186 144"/>'
+    '<path d="M148 60 L78 128 L148 196"/>'
+    '<path d="M214 60 L144 128 L214 196"/>'
     '</g>'
-    # bottom «  (offset down + slightly right for the stair-step look)
-    '<g stroke="#D97757" stroke-width="22" fill="none" opacity="0.92" '
-    'stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M132 112 L82 156 L132 200"/>'
-    '<path d="M198 112 L148 156 L198 200"/>'
-    '</g>'
-    # subtle LShift wordmark bottom-right
+    # LShift wordmark, bottom-right
     '<text x="240" y="240" font-family="Inter, \'Segoe UI\', system-ui, sans-serif" '
     'font-size="14" fill="#B0A99E" text-anchor="end" font-weight="500" '
     'letter-spacing="0.5">LShift</text>'
