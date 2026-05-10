@@ -405,9 +405,9 @@ def document_to_html(doc: Document, mode: str = "preview") -> str:
             f"<div class='page'>{body}</div></body></html>"
         )
 
-    # preview
+    # preview — white surround so the A4 page card sits on a clean sheet
     return (
-        f"<html><body style='margin:0;padding:0;background:{T.SURFACE_2};'>"
+        f"<html><body style='margin:0;padding:0;background:#FFFFFF;'>"
         f"<div style='{page_style}'>{body}</div></body></html>"
     )
 

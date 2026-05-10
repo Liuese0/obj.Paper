@@ -122,9 +122,12 @@ class BlockChrome(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setObjectName("blockChrome")
 
-        # outer layout adds a top margin so the floating badge has room
+        # Outer top margin reserves room for the badge that sits at the top
+        # of the chrome. The badge can't extend ABOVE the chrome (Qt clips
+        # children to parent geometry), so we place it inside the rounded
+        # border, near the top edge.
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 18, 16, 14)
+        outer.setContentsMargins(16, 30, 16, 14)
         outer.setSpacing(0)
         self._body = QVBoxLayout()
         self._body.setContentsMargins(0, 0, 0, 0)
@@ -132,7 +135,7 @@ class BlockChrome(QFrame):
         outer.addLayout(self._body)
 
         self.badge = BlockBadge(block, parent=self)
-        self.badge.move(14, -9)
+        self.badge.move(14, 8)
 
         # control cluster (initially hidden)
         self._ctrl_panel = QWidget(self)
@@ -206,7 +209,7 @@ class BlockChrome(QFrame):
         self._ctrl_panel.adjustSize()
         margin = 8
         x = max(0, self.width() - self._ctrl_panel.width() - margin)
-        self._ctrl_panel.move(x, 6)
+        self._ctrl_panel.move(x, 4)
 
     # ----- internals -----
     def _refresh_style(self) -> None:
@@ -235,7 +238,7 @@ class BlockChrome(QFrame):
         self._ctrl_panel.setVisible(show)
         if show:
             self._ctrl_panel.adjustSize()
-            self._ctrl_panel.move(max(0, self.width() - self._ctrl_panel.width() - 8), 6)
+            self._ctrl_panel.move(max(0, self.width() - self._ctrl_panel.width() - 8), 4)
             self._ctrl_panel.raise_()
 
     def _show_more_menu(self) -> None:

@@ -54,7 +54,7 @@ class Preview(QFrame):
     def __init__(self, document: Document, parent=None):
         super().__init__(parent)
         self.setObjectName("preview")
-        self.setStyleSheet(f"QFrame#preview {{background:{T.SURFACE_2};border-left:1px solid {T.BORDER};}}")
+        self.setStyleSheet(f"QFrame#preview {{background:#FFFFFF;border-left:1px solid {T.BORDER};}}")
         self._doc = document
         self._last_render_at: datetime | None = None
 
@@ -64,7 +64,7 @@ class Preview(QFrame):
 
         # header with tabs + buttons
         header = QFrame()
-        header.setStyleSheet(f"background:{T.BG};border-bottom:1px solid {T.BORDER};")
+        header.setStyleSheet(f"background:#FFFFFF;border-bottom:1px solid {T.BORDER};")
         head = QHBoxLayout(header)
         head.setContentsMargins(8, 6, 8, 6)
         head.setSpacing(2)
@@ -112,7 +112,7 @@ class Preview(QFrame):
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(True)
         self.browser.setStyleSheet(
-            f"QTextBrowser{{background:{T.SURFACE_2};border:none;padding:18px 18px 8px 18px;}}"
+            "QTextBrowser{background:#FFFFFF;border:none;padding:18px 18px 8px 18px;}"
         )
         self.stack.addWidget(self.browser)
 
@@ -122,7 +122,7 @@ class Preview(QFrame):
 
         # footer page nav
         foot = QFrame()
-        foot.setStyleSheet(f"background:{T.BG};border-top:1px solid {T.BORDER};")
+        foot.setStyleSheet(f"background:#FFFFFF;border-top:1px solid {T.BORDER};")
         fl = QHBoxLayout(foot)
         fl.setContentsMargins(8, 4, 8, 4)
         fl.setSpacing(8)
