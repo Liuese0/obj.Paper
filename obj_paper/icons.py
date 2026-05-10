@@ -77,6 +77,66 @@ ICONS: dict[str, str] = {
         '<path d="M18 6H6l6 6-6 6h12" '
         'fill="none" stroke="{color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>'
     ),
+    # ── toolbar / chrome ──────────────────────────────────────────────
+    "save": (
+        '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>'
+        '<path d="M17 21v-8H7v8M7 3v5h8" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>'
+    ),
+    "download": (
+        '<path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "undo": (
+        '<path d="M9 14 4 9l5-5" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5h-4" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+    ),
+    "redo": (
+        '<path d="m15 14 5-5-5-5" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M20 9H9a5 5 0 0 0-5 5v0a5 5 0 0 0 5 5h4" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+    ),
+    "link": (
+        '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+    ),
+    "caret": (
+        '<path d="M7 10l5 5 5-5z" fill="{color}"/>'
+    ),
+    "refresh": (
+        '<path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M21 3v5h-5" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+        '<path d="M3 21v-5h5" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "open": (
+        '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>'
+    ),
+    "gear": (
+        '<circle cx="12" cy="12" r="3" fill="none" stroke="{color}" stroke-width="2"/>'
+        '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 '
+        '1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" '
+        'fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>'
+    ),
+    "more": (
+        '<circle cx="6" cy="12" r="1.5" fill="{color}"/>'
+        '<circle cx="12" cy="12" r="1.5" fill="{color}"/>'
+        '<circle cx="18" cy="12" r="1.5" fill="{color}"/>'
+    ),
+    "arrUp": (
+        '<path d="m6 14 6-6 6 6" fill="none" stroke="{color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "arrDown": (
+        '<path d="m6 10 6 6 6-6" fill="none" stroke="{color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "plus": (
+        '<path d="M12 5v14M5 12h14" fill="none" stroke="{color}" stroke-width="2.4" stroke-linecap="round"/>'
+    ),
 }
 
 

@@ -56,6 +56,7 @@ from .palette import Palette
 from .preview import Preview
 from .settings_panel import SettingsPanel
 from .status_bar import StatusBar
+from .title_strip import TitleStrip
 from .toolbar import TopToolbar
 
 
@@ -128,13 +129,16 @@ class MainWindow(QMainWindow):
         body_lay.addWidget(self._palette)
         body_lay.addWidget(self._splitter, 1)
 
-        # central
+        # central — order: TitleStrip → Toolbar → 3-pane body
+        self._title_strip = TitleStrip(self._doc)
+
         central = QWidget()
         central.setObjectName("central")
         central.setStyleSheet(f"QWidget#central{{background:{T.BG};}}")
         cl = QVBoxLayout(central)
         cl.setContentsMargins(0, 0, 0, 0)
         cl.setSpacing(0)
+        cl.addWidget(self._title_strip)
         cl.addWidget(self._toolbar)
         cl.addWidget(body, 1)
         self.setCentralWidget(central)
@@ -562,6 +566,7 @@ class MainWindow(QMainWindow):
             self._palette.hide()
             self._preview.hide()
             self._toolbar.hide()
+            self._title_strip.hide()
             self.statusBar().hide()
             self.menuBar().setVisible(False)
             self.showFullScreen()
@@ -569,6 +574,7 @@ class MainWindow(QMainWindow):
             self._palette.show()
             self._preview.show()
             self._toolbar.show()
+            self._title_strip.show()
             self.statusBar().show()
             self.menuBar().setVisible(True)
             self.showNormal()

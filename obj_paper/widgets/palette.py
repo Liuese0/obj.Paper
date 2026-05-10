@@ -282,7 +282,7 @@ class _FooterTip(QLabel):
         self.setTextFormat(Qt.TextFormat.RichText)
         self.setStyleSheet(
             f"QLabel{{color:{T.DUST};font-size:10.5px;padding:10px 14px;"
-            f"border-top:1px solid {T.BORDER};background:{T.SURFACE};}}"
+            f"border-top:1px solid {T.BORDER};background:#FFFFFF;}}"
         )
         self._refresh()
         i18n().languageChanged.connect(lambda *_: self._refresh())
@@ -304,7 +304,7 @@ class Palette(QFrame):
         super().__init__(parent)
         self.setObjectName("palette")
         self.setStyleSheet(
-            f"QFrame#palette {{background:{T.SURFACE};border-right:1px solid {T.BORDER};}}"
+            f"QFrame#palette {{background:#FFFFFF;border-right:1px solid {T.BORDER};}}"
         )
         self.setFixedWidth(T.PALETTE_WIDTH)
 
