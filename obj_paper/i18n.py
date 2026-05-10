@@ -1,0 +1,357 @@
+"""Tiny in-app localization layer.
+
+Spec §13: English (`en`) and Korean (`ko`), instant toggle via `View → Language`,
+no restart. Widgets connect to `I18N.languageChanged` to refresh their texts.
+"""
+
+from __future__ import annotations
+
+from PyQt6.QtCore import QObject, pyqtSignal
+
+
+EN: dict[str, str] = {
+    # menu
+    "menu.file": "File",
+    "menu.edit": "Edit",
+    "menu.view": "View",
+    "menu.insert": "Insert",
+    "menu.format": "Format",
+    "menu.help": "Help",
+    "menu.new": "New Document",
+    "menu.open": "Open…",
+    "menu.save": "Save",
+    "menu.save_as": "Save As…",
+    "menu.export_pdf": "Export PDF…",
+    "menu.export_html": "Export HTML…",
+    "menu.exit": "Exit",
+    "menu.undo": "Undo",
+    "menu.redo": "Redo",
+    "menu.bold": "Bold",
+    "menu.italic": "Italic",
+    "menu.underline": "Underline",
+    "menu.inline_math": "Inline math",
+    "menu.link": "Insert link",
+    "menu.clear_format": "Clear formatting",
+    "menu.focus_mode": "Focus Mode",
+    "menu.language": "Language",
+    "menu.lang_en": "English",
+    "menu.lang_ko": "한국어",
+    "menu.move_up": "Move block up",
+    "menu.move_down": "Move block down",
+    "menu.duplicate": "Duplicate block",
+    "menu.delete": "Delete block",
+    "menu.add_paragraph": "Add paragraph below",
+    "menu.change_type": "Change block type…",
+    "menu.choose_template": "Choose template…",
+    "menu.about": "About obj.Paper",
+    # toolbar
+    "tb.save": "Save",
+    "tb.export": "Export",
+    "tb.undo": "Undo",
+    "tb.redo": "Redo",
+    # palette
+    "palette.search": "Search blocks…",
+    "palette.tip": "Drag onto canvas or double-click to insert",
+    "group.structure": "STRUCTURE",
+    "group.content": "CONTENT",
+    "group.academic": "ACADEMIC",
+    "group.templates": "TEMPLATES",
+    "block.title": "Title",
+    "block.authors": "Authors",
+    "block.abstract": "Abstract",
+    "block.pagebreak": "Page Break",
+    "block.heading": "Heading",
+    "block.paragraph": "Paragraph",
+    "block.list": "List",
+    "block.code": "Code",
+    "block.equation": "Equation",
+    "block.figure": "Figure",
+    "block.table": "Table",
+    "block.references": "References",
+    # canvas
+    "canvas.settings": "Document Settings",
+    "canvas.zoom": "Zoom",
+    "canvas.add_block": "Add block",
+    "canvas.empty": "Drop a block here or use the palette to start writing.",
+    # preview
+    "preview.tab_preview": "Preview",
+    "preview.tab_reference": "Reference PDF",
+    "preview.refresh": "Refresh",
+    "preview.open_pdf": "Open PDF…",
+    "preview.no_pdf": "Open a PDF to view it here.",
+    "preview.live": "live",
+    "preview.updated": "updated {sec:.1f}s ago",
+    # status bar
+    "status.saved": "Saved",
+    "status.unsaved": "Unsaved changes",
+    "status.never": "not yet saved",
+    "status.last_saved": "saved {ago}",
+    "status.blocks": "BLOCKS",
+    "status.words": "WORDS",
+    "status.pages": "PAGES",
+    "status.encoding": "UTF-8 · LF",
+    "ago.just_now": "just now",
+    "ago.minutes": "{n} min ago",
+    "ago.hours": "{n} h ago",
+    # settings
+    "settings.title": "Document Settings",
+    "settings.typography": "TYPOGRAPHY",
+    "settings.layout": "LAYOUT",
+    "settings.numbering": "NUMBERING",
+    "settings.template": "TEMPLATE",
+    "settings.body_font": "Body font",
+    "settings.title_font": "Title font",
+    "settings.body_size": "Body size",
+    "settings.line_spacing": "Line spacing",
+    "settings.paper": "Paper",
+    "settings.orientation": "Orientation",
+    "settings.portrait": "Portrait",
+    "settings.landscape": "Landscape",
+    "settings.margin_top": "Margin Top",
+    "settings.margin_bottom": "Margin Bottom",
+    "settings.margin_left": "Margin Left",
+    "settings.margin_right": "Margin Right",
+    "settings.section_numbering": "Section numbering",
+    "settings.figure_numbering": "Figure numbering",
+    "settings.table_numbering": "Table numbering",
+    "settings.equation_numbering": "Equation numbering",
+    "settings.apply_preset": "Apply preset",
+    "settings.confirm_template": "Overwrite current settings with the {name} template?",
+    "settings.confirm_template_title": "Apply template",
+    # export / dialogs
+    "export.title": "Export",
+    "export.pdf": "Export as PDF",
+    "export.html": "Export as HTML",
+    "export.in_progress": "Exporting…",
+    "export.done": "Export complete",
+    "export.fail": "Export failed: {err}",
+    "export.open_file": "Open file",
+    "export.open_folder": "Open folder",
+    "dialog.confirm": "Confirm",
+    "dialog.cancel": "Cancel",
+    "dialog.discard": "Discard",
+    "dialog.save_first": "The current document has unsaved changes. Save before continuing?",
+    "dialog.untitled": "Untitled",
+    # placeholders
+    "placeholder.title": "Enter your paper title…",
+    "placeholder.paragraph": "Type text. Ctrl+B bold · Ctrl+I italic · $…$ inline math",
+    "placeholder.heading": "Section heading",
+    "placeholder.abstract": "Write your abstract…",
+    "placeholder.keywords": "keywords (comma separated)",
+    "placeholder.author_name": "Name",
+    "placeholder.author_affiliation": "Affiliation",
+    "placeholder.author_email": "Email",
+    "placeholder.equation": r"e^{i\\pi} + 1 = 0",
+    "placeholder.equation_label": "label (optional)",
+    "placeholder.code": "# write code here",
+    "placeholder.figure_caption": "Figure caption",
+    "placeholder.table_caption": "Table caption",
+    "placeholder.references": "@article{key, title={…}, author={…}, year={…}}",
+    # actions / labels
+    "label.h1": "H1",
+    "label.h2": "H2",
+    "label.h3": "H3",
+    "label.add_author": "+ author",
+    "label.add_row": "+ row",
+    "label.add_col": "+ column",
+    "label.add_item": "+ item",
+    "label.ordered": "Ordered",
+    "label.unordered": "Unordered",
+    "label.corresponding": "corresponding author",
+    "label.choose_image": "Choose image…",
+    "label.eq_label": "Label",
+    "label.eq_number": "(eq. number)",
+    "label.references_style": "Citation style",
+    # about
+    "about.text": "obj.Paper {version} — block-based academic editor by LShift.",
+}
+
+KO: dict[str, str] = {
+    "menu.file": "파일",
+    "menu.edit": "편집",
+    "menu.view": "보기",
+    "menu.insert": "삽입",
+    "menu.format": "서식",
+    "menu.help": "도움말",
+    "menu.new": "새 문서",
+    "menu.open": "열기…",
+    "menu.save": "저장",
+    "menu.save_as": "다른 이름으로 저장…",
+    "menu.export_pdf": "PDF로 내보내기…",
+    "menu.export_html": "HTML로 내보내기…",
+    "menu.exit": "종료",
+    "menu.undo": "실행 취소",
+    "menu.redo": "다시 실행",
+    "menu.bold": "굵게",
+    "menu.italic": "기울임",
+    "menu.underline": "밑줄",
+    "menu.inline_math": "인라인 수식",
+    "menu.link": "하이퍼링크",
+    "menu.clear_format": "서식 지우기",
+    "menu.focus_mode": "집중 모드",
+    "menu.language": "언어",
+    "menu.lang_en": "English",
+    "menu.lang_ko": "한국어",
+    "menu.move_up": "블록 위로 이동",
+    "menu.move_down": "블록 아래로 이동",
+    "menu.duplicate": "블록 복제",
+    "menu.delete": "블록 삭제",
+    "menu.add_paragraph": "아래에 단락 추가",
+    "menu.change_type": "블록 타입 변경…",
+    "menu.choose_template": "템플릿 선택…",
+    "menu.about": "obj.Paper 정보",
+    "tb.save": "저장",
+    "tb.export": "내보내기",
+    "tb.undo": "실행 취소",
+    "tb.redo": "재실행",
+    "palette.search": "블록 검색…",
+    "palette.tip": "블록을 캔버스로 드래그하거나 더블클릭으로 삽입하세요",
+    "group.structure": "STRUCTURE",
+    "group.content": "CONTENT",
+    "group.academic": "ACADEMIC",
+    "group.templates": "TEMPLATES",
+    "block.title": "제목",
+    "block.authors": "저자",
+    "block.abstract": "초록",
+    "block.pagebreak": "페이지 나누기",
+    "block.heading": "섹션 제목",
+    "block.paragraph": "단락",
+    "block.list": "목록",
+    "block.code": "코드",
+    "block.equation": "수식",
+    "block.figure": "그림",
+    "block.table": "표",
+    "block.references": "참고문헌",
+    "canvas.settings": "문서 설정",
+    "canvas.zoom": "확대",
+    "canvas.add_block": "블록 추가",
+    "canvas.empty": "팔레트에서 블록을 끌어다 놓거나 더블클릭으로 시작하세요.",
+    "preview.tab_preview": "미리보기",
+    "preview.tab_reference": "참고 PDF",
+    "preview.refresh": "새로고침",
+    "preview.open_pdf": "PDF 열기…",
+    "preview.no_pdf": "참고용 PDF를 열어 이 패널에 표시할 수 있어요.",
+    "preview.live": "실시간",
+    "preview.updated": "{sec:.1f}초 전 갱신",
+    "status.saved": "저장됨",
+    "status.unsaved": "저장되지 않음",
+    "status.never": "저장 이력 없음",
+    "status.last_saved": "{ago} 저장됨",
+    "status.blocks": "블록",
+    "status.words": "단어",
+    "status.pages": "페이지",
+    "status.encoding": "UTF-8 · LF",
+    "ago.just_now": "방금",
+    "ago.minutes": "{n}분 전",
+    "ago.hours": "{n}시간 전",
+    "settings.title": "문서 설정",
+    "settings.typography": "타이포그래피",
+    "settings.layout": "레이아웃",
+    "settings.numbering": "번호 매김",
+    "settings.template": "템플릿",
+    "settings.body_font": "본문 폰트",
+    "settings.title_font": "제목 폰트",
+    "settings.body_size": "본문 크기",
+    "settings.line_spacing": "줄 간격",
+    "settings.paper": "용지",
+    "settings.orientation": "방향",
+    "settings.portrait": "세로",
+    "settings.landscape": "가로",
+    "settings.margin_top": "위 여백",
+    "settings.margin_bottom": "아래 여백",
+    "settings.margin_left": "왼쪽 여백",
+    "settings.margin_right": "오른쪽 여백",
+    "settings.section_numbering": "섹션 번호",
+    "settings.figure_numbering": "그림 번호",
+    "settings.table_numbering": "표 번호",
+    "settings.equation_numbering": "수식 번호",
+    "settings.apply_preset": "프리셋 적용",
+    "settings.confirm_template": "현재 설정을 {name} 템플릿으로 덮어씌울까요?",
+    "settings.confirm_template_title": "템플릿 적용",
+    "export.title": "내보내기",
+    "export.pdf": "PDF로 저장",
+    "export.html": "HTML로 저장",
+    "export.in_progress": "내보내는 중…",
+    "export.done": "내보내기 완료",
+    "export.fail": "내보내기 실패: {err}",
+    "export.open_file": "파일 열기",
+    "export.open_folder": "폴더 열기",
+    "dialog.confirm": "확인",
+    "dialog.cancel": "취소",
+    "dialog.discard": "버리기",
+    "dialog.save_first": "변경사항이 저장되지 않았습니다. 계속하기 전에 저장할까요?",
+    "dialog.untitled": "제목 없음",
+    "placeholder.title": "논문 제목을 입력하세요…",
+    "placeholder.paragraph": "본문을 입력하세요. Ctrl+B 굵게 · Ctrl+I 기울임 · $…$ 인라인 수식",
+    "placeholder.heading": "섹션 제목",
+    "placeholder.abstract": "초록을 입력하세요…",
+    "placeholder.keywords": "키워드 (쉼표 구분)",
+    "placeholder.author_name": "이름",
+    "placeholder.author_affiliation": "소속",
+    "placeholder.author_email": "이메일",
+    "placeholder.equation": r"e^{i\\pi} + 1 = 0",
+    "placeholder.equation_label": "레이블 (선택)",
+    "placeholder.code": "# 코드를 입력하세요",
+    "placeholder.figure_caption": "그림 캡션",
+    "placeholder.table_caption": "표 캡션",
+    "placeholder.references": "@article{key, title={…}, author={…}, year={…}}",
+    "label.h1": "H1",
+    "label.h2": "H2",
+    "label.h3": "H3",
+    "label.add_author": "+ 저자",
+    "label.add_row": "+ 행",
+    "label.add_col": "+ 열",
+    "label.add_item": "+ 항목",
+    "label.ordered": "순서 있음",
+    "label.unordered": "순서 없음",
+    "label.corresponding": "교신저자",
+    "label.choose_image": "이미지 선택…",
+    "label.eq_label": "레이블",
+    "label.eq_number": "(수식 번호)",
+    "label.references_style": "인용 스타일",
+    "about.text": "obj.Paper {version} — LShift가 만든 블록 기반 학술 에디터.",
+}
+
+
+class I18N(QObject):
+    """Singleton-like translation provider. Emits when language changes."""
+
+    languageChanged = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self._lang = "ko"
+
+    @property
+    def lang(self) -> str:
+        return self._lang
+
+    def set_lang(self, lang: str) -> None:
+        if lang not in ("en", "ko") or lang == self._lang:
+            return
+        self._lang = lang
+        self.languageChanged.emit(lang)
+
+    def toggle(self) -> None:
+        self.set_lang("en" if self._lang == "ko" else "ko")
+
+    def t(self, key: str, **fmt) -> str:
+        d = KO if self._lang == "ko" else EN
+        v = d.get(key, EN.get(key, key))
+        if fmt:
+            try:
+                return v.format(**fmt)
+            except Exception:
+                return v
+        return v
+
+
+_INSTANCE = I18N()
+
+
+def i18n() -> I18N:
+    return _INSTANCE
+
+
+def t(key: str, **fmt) -> str:
+    return _INSTANCE.t(key, **fmt)
