@@ -228,16 +228,66 @@ def _render_svg_to_pixmap(svg: str, size: int) -> QPixmap:
     return pm
 
 
-def app_icon():
-    """Build a multi-resolution QIcon for the application from the brand SVG.
+def _find_brand_png() -> str | None:
+    """Locate the user-provided brand PNG. Search a few candidate paths so
+    the file can live either next to the package or at the repo root, no
+    matter how the app is launched (`python -m obj_paper`, installed via
+    pip, frozen with PyInstaller, etc.)."""
+    import os
+    import sys
 
-    QIcon picks the closest-matching size from its internal pixmap cache,
-    so providing 16 / 24 / 32 / 48 / 64 / 128 / 256 keeps the icon crisp
-    in the OS taskbar, Alt-Tab switcher, and window decorations.
-    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(here, "assets", "icon.png"),
+        os.path.join(here, "..", "obj.Paper Icon 64.png"),
+        os.path.join(os.getcwd(), "obj.Paper Icon 64.png"),
+    ]
+    # PyInstaller / frozen apps unpack data next to sys.executable
+    if getattr(sys, "frozen", False):
+        candidates.append(os.path.join(os.path.dirname(sys.executable), "obj.Paper Icon 64.png"))
+    for p in candidates:
+        if os.path.isfile(p):
+            return os.path.abspath(p)
+    return None
+
+
+def app_icon():
+    """Build a multi-resolution QIcon for the application.
+
+    Prefers the brand PNG shipped at the repo root (`obj.Paper Icon 64.png`)
+    and registers the file directly with QIcon so Qt picks the closest
+    available size for each surface (taskbar, Alt-Tab, window decoration,
+    macOS dock). Falls back to the inline SVG mark if no PNG is present —
+    handy in test environments and for development checkouts where the
+    asset hasn't landed yet."""
     from PyQt6.QtGui import QIcon
 
     icon = QIcon()
+    png = _find_brand_png()
+    if png is not None:
+        # addFile lets QIcon load and rescale the PNG itself; the OS may
+        # request any size from 16 to 512 px depending on the surface.
+        icon.addFile(png)
+        # Pre-bake a few common sizes so the OS has high-quality variants
+        # without having to scale the 64-px source too aggressively.
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtGui import QPixmap
+
+        src = QPixmap(png)
+        if not src.isNull():
+            from PyQt6.QtCore import Qt
+            for size in (16, 24, 32, 48, 64, 128, 256):
+                icon.addPixmap(
+                    src.scaled(
+                        size,
+                        size,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+        return icon
+
+    # Fallback — generated SVG mark
     for size in (16, 24, 32, 48, 64, 128, 256):
         icon.addPixmap(_render_svg_to_pixmap(_APP_ICON_SVG, size))
     return icon
