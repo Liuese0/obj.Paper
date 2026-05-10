@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from .. import theme as T
 from ..i18n import t, i18n
+from ..icons import TYPE_TO_ICON, svg_pixmap
 from ..templates import TEMPLATES, TEMPLATE_ORDER
 
 
@@ -36,25 +37,27 @@ PALETTE_MIME = "application/x-objpaper-block"
 TEMPLATE_MIME = "application/x-objpaper-template"
 
 
-# Each group entry: (i18n key for header, [(type_id, glyph, optional shortcut hint)])
-PALETTE_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
+# Each group entry: (i18n key for header, [(type_id, optional shortcut hint)])
+# The icon for each type comes from `obj_paper.icons.TYPE_TO_ICON` so block
+# badges, palette items, and any future status surface stay in sync.
+PALETTE_GROUPS: list[tuple[str, list[tuple[str, str | None]]]] = [
     ("group.structure", [
-        ("title", "𝐀", None),
-        ("authors", "👤", None),
-        ("abstract", "≣", None),
-        ("pagebreak", "—", "⌥⏎"),
+        ("title", None),
+        ("authors", None),
+        ("abstract", None),
+        ("pagebreak", "⌥⏎"),
     ]),
     ("group.content", [
-        ("heading", "H", None),
-        ("paragraph", "¶", None),
-        ("list", "≡", None),
-        ("code", "{ }", None),
+        ("heading", None),
+        ("paragraph", None),
+        ("list", None),
+        ("code", None),
     ]),
     ("group.academic", [
-        ("equation", "Σ", "⌘M"),
-        ("figure", "▣", None),
-        ("table", "⊞", None),
-        ("references", "§", None),
+        ("equation", "⌘M"),
+        ("figure", None),
+        ("table", None),
+        ("references", None),
     ]),
 ]
 
@@ -96,10 +99,9 @@ class PaletteItem(QFrame):
 
     insertRequested = pyqtSignal(str)  # block type id
 
-    def __init__(self, type_id: str, glyph: str, hint: str | None = None, parent: QWidget | None = None):
+    def __init__(self, type_id: str, hint: str | None = None, parent: QWidget | None = None):
         super().__init__(parent)
         self._type = type_id
-        self._glyph = glyph
         self._hint = hint
         self._hover = False
         self.setObjectName("paletteItem")
@@ -110,13 +112,17 @@ class PaletteItem(QFrame):
         lay.setContentsMargins(10, 6, 10, 6)
         lay.setSpacing(10)
 
-        self.icon = QLabel(glyph)
+        # Icon chip: 22×22 BG-tinted rounded square holding a 12×12 SVG glyph
+        # rendered through obj_paper.icons.svg_pixmap.
+        self.icon = QLabel()
         self.icon.setFixedSize(22, 22)
         self.icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.icon.setStyleSheet(
-            f"background:{T.BG};border:1px solid {T.BORDER};border-radius:4px;color:{T.DUST};"
-            f"font-size:12px;font-family:'JetBrains Mono',monospace;"
+            f"background:{T.BG};border:1px solid {T.BORDER};border-radius:4px;"
         )
+        icon_name = TYPE_TO_ICON.get(type_id, "page")
+        self.icon.setPixmap(svg_pixmap(icon_name, size=12, color=T.DUST))
+
         self.label = QLabel(t(f"block.{type_id}"))
         self.label.setStyleSheet(f"color:{T.INK};font-size:12px;")
         lay.addWidget(self.icon)
@@ -239,8 +245,9 @@ class _SearchField(QFrame):
         lay.setContentsMargins(10, 0, 6, 0)
         lay.setSpacing(8)
 
-        ico = QLabel("🔍")
-        ico.setStyleSheet(f"color:{T.MIST};font-size:11px;")
+        ico = QLabel()
+        ico.setFixedSize(13, 13)
+        ico.setPixmap(svg_pixmap("search", size=13, color=T.MIST))
         lay.addWidget(ico)
 
         self.input = QLineEdit()
@@ -332,8 +339,8 @@ class Palette(QFrame):
             header = _GroupHeader(group_key)
             body_lay.addWidget(header)
             self._group_headers.append((group_key, header))
-            for type_id, glyph, hint in items:
-                pi = PaletteItem(type_id, glyph, hint)
+            for type_id, hint in items:
+                pi = PaletteItem(type_id, hint)
                 pi.insertRequested.connect(self.insertRequested)
                 self._items.append(pi)
                 body_lay.addWidget(pi)
