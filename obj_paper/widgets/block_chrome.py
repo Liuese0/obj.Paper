@@ -121,11 +121,10 @@ class BlockChrome(QFrame):
         self.setAutoFillBackground(False)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setObjectName("blockChrome")
-        self.setMinimumHeight(48)
 
         # outer layout adds a top margin so the floating badge has room
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(15, 16, 15, 14)
+        outer.setContentsMargins(16, 18, 16, 14)
         outer.setSpacing(0)
         self._body = QVBoxLayout()
         self._body.setContentsMargins(0, 0, 0, 0)
@@ -214,25 +213,22 @@ class BlockChrome(QFrame):
         if self._is_selected:
             border = f"2px solid {T.ACCENT}"
             bg = T.ACCENT_LIGHT
-            pad = "13px 14px 13px 14px"
         elif self._hover:
             border = f"1px solid {T.ACCENT}"
             bg = T.SURFACE
-            pad = "14px 15px 14px 15px"
         else:
             border = f"1px solid {T.BORDER}"
             bg = T.SURFACE
-            pad = "14px 15px 14px 15px"
-        opacity = "0.7" if self._dragging else "1.0"
+        # Padding is applied via the outer QVBoxLayout's contentsMargins;
+        # adding QSS padding on top would double-pad and confuse the layout's
+        # height calculation, which causes children to spill out of the frame.
         self.setStyleSheet(
             f"QFrame#blockChrome {{"
             f"background:{bg};"
             f"border:{border};"
             f"border-radius:8px;"
-            f"padding:{pad};"
             f"}}"
         )
-        # opacity via QGraphicsEffect would be nicer; we approximate via stylesheet on children where possible.
 
     def _refresh_ctrl(self) -> None:
         show = self._hover or self._is_selected

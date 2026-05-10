@@ -69,29 +69,48 @@ def registered_types() -> list[str]:
 
 
 # ---------- helpers ----------
-def _autosize_textedit(edit: QTextEdit, min_lines: int = 2) -> None:
-    """Make a QTextEdit grow to fit its content (no inner scrollbar)."""
-    edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+class AutoTextEdit(QTextEdit):
+    """A QTextEdit that grows to fit its content height — never shows its
+    own scrollbar. Adjusts on every content change AND every resize, so the
+    height stays correct when the canvas pane is resized."""
 
-    def adjust():
-        doc = edit.document()
-        doc.setTextWidth(edit.viewport().width())
-        h = doc.size().height()
-        line_h = QFontMetrics(edit.font()).lineSpacing()
-        edit.setFixedHeight(int(max(h + 6, line_h * min_lines + 6)))
+    def __init__(self, min_lines: int = 1, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._min_lines = max(1, min_lines)
+        self.setAcceptRichText(False)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.document().contentsChanged.connect(self._adjust)
+        QTimer.singleShot(0, self._adjust)
 
-    edit.textChanged.connect(adjust)
-    QTimer.singleShot(0, adjust)
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._adjust()
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        QTimer.singleShot(0, self._adjust)
+
+    def _adjust(self) -> None:
+        doc = self.document()
+        w = self.viewport().width()
+        if w > 0:
+            doc.setTextWidth(w)
+        line_h = QFontMetrics(self.font()).lineSpacing()
+        content_h = int(doc.size().height())
+        new_h = max(content_h + 8, line_h * self._min_lines + 8)
+        if new_h != self.height():
+            self.setFixedHeight(new_h)
+            self.updateGeometry()
 
 
-def _make_serif_textedit(text: str, placeholder: str, font_size: int = 14) -> QTextEdit:
-    edit = QTextEdit()
-    edit.setAcceptRichText(False)
+def _make_serif_textedit(text: str, placeholder: str, font_size: int = 14, min_lines: int = 1) -> AutoTextEdit:
+    edit = AutoTextEdit(min_lines=min_lines)
     edit.setPlaceholderText(placeholder)
     edit.setPlainText(text)
-    edit.setFrameShape(QFrame.Shape.NoFrame)
     f = QFont("Times New Roman")
     f.setPointSize(font_size - 4 if font_size > 6 else font_size)
     f.setStyleHint(QFont.StyleHint.Serif)
@@ -130,6 +149,7 @@ class TitleBlockWidget(BlockChrome):
             block.data.get("text", ""),
             t("placeholder.title"),
             font_size=22,
+            min_lines=1,
         )
         f = self.edit.font()
         f.setPointSize(20)
@@ -137,7 +157,6 @@ class TitleBlockWidget(BlockChrome):
         self.edit.setFont(f)
         self.edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.edit.setStyleSheet(f"color:{T.INK};text-align:center;")
-        _autosize_textedit(self.edit, min_lines=1)
         _attach_inline_toolbar(self.edit)
         self.add_widget(self.edit)
         self.edit.textChanged.connect(self._on_change)
@@ -249,8 +268,9 @@ class AbstractBlockWidget(BlockChrome):
         kw_row.addWidget(self.kw_edit, 1)
         self.add_layout(kw_row)
 
-        self.body = _make_serif_textedit(block.data.get("text", ""), t("placeholder.abstract"), font_size=14)
-        _autosize_textedit(self.body, min_lines=4)
+        self.body = _make_serif_textedit(
+            block.data.get("text", ""), t("placeholder.abstract"), font_size=14, min_lines=4
+        )
         _attach_inline_toolbar(self.body)
         self.add_widget(self.body)
         self.body.textChanged.connect(self._on_body)
@@ -305,12 +325,13 @@ class HeadingBlockWidget(BlockChrome):
         row.addStretch(1)
         self.add_layout(row)
 
-        self.edit = _make_serif_textedit(block.data.get("text", ""), t("placeholder.heading"), font_size=16)
+        self.edit = _make_serif_textedit(
+            block.data.get("text", ""), t("placeholder.heading"), font_size=16, min_lines=1
+        )
         f = self.edit.font()
         f.setPointSize(15)
         f.setBold(True)
         self.edit.setFont(f)
-        _autosize_textedit(self.edit, min_lines=1)
         _attach_inline_toolbar(self.edit)
         self.add_widget(self.edit)
         self.edit.textChanged.connect(self._on_text)
@@ -338,8 +359,8 @@ class ParagraphBlockWidget(BlockChrome):
             block.data.get("text", ""),
             t("placeholder.paragraph"),
             font_size=14,
+            min_lines=2,
         )
-        _autosize_textedit(self.edit, min_lines=2)
         _attach_inline_toolbar(self.edit)
         self.add_widget(self.edit)
         self.edit.textChanged.connect(self._on_text)

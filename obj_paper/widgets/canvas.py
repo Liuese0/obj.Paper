@@ -106,7 +106,9 @@ class Canvas(QFrame):
         self._inner.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._inner_lay = QVBoxLayout(self._inner)
         self._inner_lay.setContentsMargins(0, 0, 0, 0)
-        self._inner_lay.setSpacing(0)
+        # 4px between every block / insert-between row so the floating badges
+        # don't visually collide with the next block's content.
+        self._inner_lay.setSpacing(4)
         wrap_lay.addWidget(self._inner, 0, Qt.AlignmentFlag.AlignHCenter)
         wrap_lay.addStretch(1)
         self.scroll.setWidget(wrap)
