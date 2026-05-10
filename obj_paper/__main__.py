@@ -7,6 +7,7 @@ import sys
 from PyQt6.QtWidgets import QApplication
 
 from . import __version__, theme as T
+from .icons import app_icon
 from .widgets.main_window import MainWindow
 
 
@@ -15,6 +16,9 @@ def main() -> int:
     app.setApplicationName("obj.Paper")
     app.setApplicationVersion(__version__)
     app.setOrganizationName("LShift")
+    # LShift `«` brand mark — used by every top-level window, the OS
+    # taskbar entry, the Alt-Tab switcher, and the macOS dock.
+    app.setWindowIcon(app_icon())
     # NOTE: don't set ApplicationDisplayName. Qt would auto-append
     # " - obj.Paper" to every window title, duplicating the brand we
     # already include via MainWindow.setWindowTitle().

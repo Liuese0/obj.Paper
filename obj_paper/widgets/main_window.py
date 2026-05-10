@@ -79,6 +79,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(T.WINDOW_MIN_W, T.WINDOW_MIN_H)
         self.resize(T.WINDOW_DEFAULT_W, T.WINDOW_DEFAULT_H)
         self.setObjectName("mainWindow")
+        from ..icons import app_icon
+
+        self.setWindowIcon(app_icon())
 
         self._doc = starter_document()
         self._focus_mode = False
