@@ -1,8 +1,12 @@
 """Left-side block palette (spec §5.2).
 
+Visual reference: `obj.Paper Mockup.html` ─ each group header is rendered as
+`[LABEL] ──────────── ▾`, the search bar carries a `⌘K` kbd hint, and items
+that have a registered shortcut display it in mono font on the right edge.
+
 - Search field with realtime filter
-- STRUCTURE / CONTENT / ACADEMIC groups
-- TEMPLATES grid (6 presets)
+- STRUCTURE / CONTENT / ACADEMIC groups (header chip + divider + caret)
+- TEMPLATES grid (6 presets, 2 columns, current template highlighted)
 - Drag source (custom mime) and double-click signal for insertion
 """
 
@@ -32,26 +36,59 @@ PALETTE_MIME = "application/x-objpaper-block"
 TEMPLATE_MIME = "application/x-objpaper-template"
 
 
-PALETTE_GROUPS = [
+# Each group entry: (i18n key for header, [(type_id, glyph, optional shortcut hint)])
+PALETTE_GROUPS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
     ("group.structure", [
-        ("title", "𝐀"),
-        ("authors", "👤"),
-        ("abstract", "¶"),
-        ("pagebreak", "—"),
+        ("title", "𝐀", None),
+        ("authors", "👤", None),
+        ("abstract", "≣", None),
+        ("pagebreak", "—", "⌥⏎"),
     ]),
     ("group.content", [
-        ("heading", "H"),
-        ("paragraph", "¶"),
-        ("list", "≡"),
-        ("code", "{ }"),
+        ("heading", "H", None),
+        ("paragraph", "¶", None),
+        ("list", "≡", None),
+        ("code", "{ }", None),
     ]),
     ("group.academic", [
-        ("equation", "Σ"),
-        ("figure", "▣"),
-        ("table", "⊞"),
-        ("references", "§"),
+        ("equation", "Σ", "⌘M"),
+        ("figure", "▣", None),
+        ("table", "⊞", None),
+        ("references", "§", None),
     ]),
 ]
+
+
+class _GroupHeader(QWidget):
+    """`STRUCTURE ────────── ▾` row at the top of each palette group."""
+
+    def __init__(self, key: str, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._key = key
+        self.setFixedHeight(22)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(6, 8, 6, 4)
+        lay.setSpacing(8)
+
+        self.label = QLabel(t(key))
+        self.label.setStyleSheet(
+            f"color:{T.ACCENT};font-size:10px;font-weight:600;letter-spacing:1.4px;"
+        )
+        lay.addWidget(self.label)
+
+        rule = QFrame()
+        rule.setFrameShape(QFrame.Shape.NoFrame)
+        rule.setFixedHeight(1)
+        rule.setStyleSheet(f"background:{T.BORDER};")
+        rule.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        lay.addWidget(rule, 1)
+
+        caret = QLabel("▾")
+        caret.setStyleSheet(f"color:{T.MIST};font-size:9px;")
+        lay.addWidget(caret)
+
+        i18n().languageChanged.connect(lambda *_: self.label.setText(t(self._key)))
 
 
 class PaletteItem(QFrame):
@@ -59,15 +96,15 @@ class PaletteItem(QFrame):
 
     insertRequested = pyqtSignal(str)  # block type id
 
-    def __init__(self, type_id: str, glyph: str, parent: QWidget | None = None):
+    def __init__(self, type_id: str, glyph: str, hint: str | None = None, parent: QWidget | None = None):
         super().__init__(parent)
         self._type = type_id
         self._glyph = glyph
+        self._hint = hint
+        self._hover = False
         self.setObjectName("paletteItem")
         self.setCursor(Qt.CursorShape.OpenHandCursor)
-        self.setMinimumHeight(30)
-        self.setProperty("active", False)
-        self._restyle()
+        self.setFixedHeight(34)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 6, 10, 6)
@@ -85,17 +122,39 @@ class PaletteItem(QFrame):
         lay.addWidget(self.icon)
         lay.addWidget(self.label, 1)
 
+        if hint:
+            self.hint_lbl = QLabel(hint)
+            self.hint_lbl.setStyleSheet(
+                f"color:{T.MIST};font-size:10px;font-family:'JetBrains Mono',monospace;"
+            )
+            lay.addWidget(self.hint_lbl)
+        else:
+            self.hint_lbl = None
+
         self._press_pos: QPoint | None = None
+        self._restyle()
         i18n().languageChanged.connect(self._retranslate)
 
     def _retranslate(self, _lang: str) -> None:
         self.label.setText(t(f"block.{self._type}"))
 
-    def _restyle(self):
-        self.setStyleSheet(
-            f"QFrame#paletteItem {{background:transparent;border-radius:6px;border:1px solid transparent;}}"
-            f"QFrame#paletteItem:hover {{background:{T.SURFACE_2};}}"
-        )
+    def _restyle(self) -> None:
+        if self._hover:
+            self.setStyleSheet(
+                f"QFrame#paletteItem {{background:{T.SURFACE_2};border-radius:6px;border:1px solid transparent;}}"
+            )
+        else:
+            self.setStyleSheet(
+                f"QFrame#paletteItem {{background:transparent;border-radius:6px;border:1px solid transparent;}}"
+            )
+
+    def enterEvent(self, e):
+        self._hover = True
+        self._restyle()
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self._restyle()
 
     # drag source
     def mousePressEvent(self, e):
@@ -145,20 +204,87 @@ class TemplateButton(QPushButton):
         self.setText(info["name"].split()[0])
         self.setFixedHeight(26)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        is_default = template_id == "general"
-        if is_default:
+        self.set_active(template_id == "general")
+
+    def set_active(self, active: bool) -> None:
+        if active:
             self.setStyleSheet(
                 f"QPushButton{{background:{T.ACCENT};color:white;border:1px solid {T.ACCENT};"
-                f"border-radius:5px;font-weight:500;font-size:11px;}}"
+                f"border-radius:5px;font-weight:500;font-size:11px;letter-spacing:.02em;}}"
                 f"QPushButton:hover{{background:{T.ACCENT_HOVER};}}"
             )
         else:
             self.setStyleSheet(
                 f"QPushButton{{background:{T.ACCENT_LIGHT};color:{T.ACCENT};border:1px solid transparent;"
-                f"border-radius:5px;font-size:11px;}}"
+                f"border-radius:5px;font-size:11px;letter-spacing:.02em;}}"
                 f"QPushButton:hover{{border-color:{T.ACCENT};}}"
             )
         self.clicked.connect(lambda: self.applyRequested.emit(self._tid))
+
+
+class _SearchField(QFrame):
+    """Search bar with leading icon and trailing kbd hint (⌘K)."""
+
+    textChanged = pyqtSignal(str)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setObjectName("paletteSearch")
+        self.setFixedHeight(30)
+        self.setStyleSheet(
+            f"QFrame#paletteSearch{{background:{T.BG};border:1px solid {T.BORDER};border-radius:7px;}}"
+            f"QFrame#paletteSearch:focus-within{{border-color:{T.ACCENT};}}"
+        )
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(10, 0, 6, 0)
+        lay.setSpacing(8)
+
+        ico = QLabel("🔍")
+        ico.setStyleSheet(f"color:{T.MIST};font-size:11px;")
+        lay.addWidget(ico)
+
+        self.input = QLineEdit()
+        self.input.setPlaceholderText(t("palette.search"))
+        self.input.setFrame(False)
+        self.input.setStyleSheet(
+            f"QLineEdit{{background:transparent;border:none;color:{T.INK};font-size:12px;padding:0;}}"
+            f"QLineEdit::placeholder{{color:{T.MIST};}}"
+        )
+        self.input.textChanged.connect(self.textChanged)
+        lay.addWidget(self.input, 1)
+
+        self.kbd = QLabel("⌘K")
+        self.kbd.setStyleSheet(
+            f"background:{T.SURFACE};border:1px solid {T.BORDER};border-radius:3px;"
+            f"color:{T.DUST};font-size:10px;font-family:'JetBrains Mono',monospace;"
+            f"padding:1px 5px;"
+        )
+        lay.addWidget(self.kbd)
+
+        i18n().languageChanged.connect(
+            lambda *_: self.input.setPlaceholderText(t("palette.search"))
+        )
+
+
+class _FooterTip(QLabel):
+    """`Tip · 블록을 캔버스로...` footer with a Mist-colored 'Tip ·' prefix."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWordWrap(True)
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setStyleSheet(
+            f"QLabel{{color:{T.DUST};font-size:10.5px;padding:10px 14px;"
+            f"border-top:1px solid {T.BORDER};background:{T.SURFACE};}}"
+        )
+        self._refresh()
+        i18n().languageChanged.connect(lambda *_: self._refresh())
+
+    def _refresh(self) -> None:
+        self.setText(
+            f"<span style='color:{T.MIST}'>Tip ·</span> "
+            f"<span style='color:{T.DUST}'>{t('palette.tip')}</span>"
+        )
 
 
 class Palette(QFrame):
@@ -183,8 +309,7 @@ class Palette(QFrame):
         search_wrap = QWidget()
         sw = QHBoxLayout(search_wrap)
         sw.setContentsMargins(12, 12, 12, 8)
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("🔍 " + t("palette.search"))
+        self.search = _SearchField()
         self.search.textChanged.connect(self._filter)
         sw.addWidget(self.search)
         outer.addWidget(search_wrap)
@@ -198,70 +323,41 @@ class Palette(QFrame):
         body = QWidget()
         body_lay = QVBoxLayout(body)
         body_lay.setContentsMargins(8, 4, 8, 8)
-        body_lay.setSpacing(10)
+        body_lay.setSpacing(2)
         scroll.setWidget(body)
 
         self._items: list[PaletteItem] = []
-        self._group_widgets: list[tuple[QLabel, list[PaletteItem]]] = []
+        self._group_headers: list[tuple[str, _GroupHeader]] = []
         for group_key, items in PALETTE_GROUPS:
-            header = QLabel(t(group_key))
-            header.setObjectName("panelHeader")
-            header.setStyleSheet(
-                f"QLabel#panelHeader {{color:{T.ACCENT};font-size:10px;font-weight:600;letter-spacing:1.4px;padding:6px 6px 2px 6px;}}"
-            )
+            header = _GroupHeader(group_key)
             body_lay.addWidget(header)
-            group_items: list[PaletteItem] = []
-            for type_id, glyph in items:
-                pi = PaletteItem(type_id, glyph)
+            self._group_headers.append((group_key, header))
+            for type_id, glyph, hint in items:
+                pi = PaletteItem(type_id, glyph, hint)
                 pi.insertRequested.connect(self.insertRequested)
                 self._items.append(pi)
-                group_items.append(pi)
                 body_lay.addWidget(pi)
-            self._group_widgets.append((header, group_items))
+            body_lay.addSpacing(6)
 
         # templates
-        tpl_header = QLabel(t("group.templates"))
-        tpl_header.setObjectName("panelHeader")
-        tpl_header.setStyleSheet(
-            f"QLabel#panelHeader {{color:{T.ACCENT};font-size:10px;font-weight:600;letter-spacing:1.4px;padding:10px 6px 4px 6px;}}"
-        )
-        body_lay.addWidget(tpl_header)
+        self._tpl_header = _GroupHeader("group.templates")
+        body_lay.addWidget(self._tpl_header)
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(6)
-        grid.setContentsMargins(2, 2, 2, 2)
+        grid.setContentsMargins(2, 4, 2, 2)
+        self._tpl_buttons: list[TemplateButton] = []
         for idx, tid in enumerate(TEMPLATE_ORDER):
             btn = TemplateButton(tid)
             btn.applyRequested.connect(self.templateApplyRequested)
             grid.addWidget(btn, idx // 2, idx % 2)
+            self._tpl_buttons.append(btn)
         body_lay.addLayout(grid)
         body_lay.addStretch(1)
 
         # footer hint
-        hint = QLabel(t("palette.tip"))
-        hint.setWordWrap(True)
-        hint.setObjectName("muted")
-        hint.setStyleSheet(
-            f"QLabel#muted {{color:{T.DUST};font-size:10.5px;padding:10px 14px;border-top:1px solid {T.BORDER};"
-            f"background:{T.SURFACE};}}"
-        )
-        outer.addWidget(hint)
-
-        self._tpl_header = tpl_header
-        i18n().languageChanged.connect(self._retranslate)
-        self._retranslate(i18n().lang)
-
-    def _retranslate(self, _lang):
-        self.search.setPlaceholderText("🔍 " + t("palette.search"))
-        for header, _items in self._group_widgets:
-            # find which key by current text — simpler: store keys
-            pass
-        self._tpl_header.setText(t("group.templates"))
-        # Group headers carry their own keys
-        keys = [k for k, _ in PALETTE_GROUPS]
-        for (header, _), key in zip(self._group_widgets, keys):
-            header.setText(t(key))
+        outer.addWidget(_FooterTip())
 
     def _filter(self, text: str) -> None:
         text = text.strip().lower()
@@ -270,3 +366,8 @@ class Palette(QFrame):
             if text:
                 visible = text in it.label.text().lower() or text in it._type.lower()
             it.setVisible(visible)
+
+    def set_active_template(self, template_id: str) -> None:
+        """Highlight the palette template chip that matches the current document."""
+        for btn in self._tpl_buttons:
+            btn.set_active(btn._tid == template_id)

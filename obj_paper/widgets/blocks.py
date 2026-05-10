@@ -371,12 +371,48 @@ class ParagraphBlockWidget(BlockChrome):
 
 
 # ---------- EQUATION ----------
+class _ScaledFormulaLabel(QLabel):
+    """A QLabel that holds a source pixmap and rescales it to fit the
+    available width on every resize. Never lets the rendered formula spill
+    out of its parent block."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._source: QPixmap | None = None
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumHeight(40)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def set_source(self, pm: QPixmap) -> None:
+        self._source = pm
+        self._refit()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._refit()
+
+    def _refit(self) -> None:
+        if self._source is None or self._source.isNull():
+            return
+        avail_w = max(40, self.width() - 8)
+        src = self._source
+        if src.width() <= avail_w:
+            scaled = src
+        else:
+            scaled = src.scaledToWidth(avail_w, Qt.TransformationMode.SmoothTransformation)
+        self.setPixmap(scaled)
+        # Lock the label's height to the rendered image so the parent's
+        # autosizing layout knows exactly how much room to reserve.
+        self.setFixedHeight(scaled.height() + 8)
+
+
 @register_block("equation")
 class EquationBlockWidget(BlockChrome):
     def __init__(self, block: BlockData, parent: QWidget | None = None):
         super().__init__(block, parent)
         block.data.setdefault("latex", "")
         block.data.setdefault("label", "")
+        block.data.setdefault("size", 18)  # rendered font size in points
 
         row = QHBoxLayout()
         label_lbl = QLabel(t("label.eq_label"))
@@ -384,9 +420,17 @@ class EquationBlockWidget(BlockChrome):
         self.label_edit = QLineEdit(block.data["label"])
         self.label_edit.setPlaceholderText(t("placeholder.equation_label"))
         self.label_edit.setFixedWidth(160)
+        size_lbl = QLabel("Size")
+        size_lbl.setStyleSheet(f"font-size:11px;color:{T.DUST};")
+        self.size_spin = QSpinBox()
+        self.size_spin.setRange(10, 36)
+        self.size_spin.setSuffix(" pt")
+        self.size_spin.setValue(int(block.data["size"]))
         row.addWidget(label_lbl)
         row.addWidget(self.label_edit)
         row.addStretch(1)
+        row.addWidget(size_lbl)
+        row.addWidget(self.size_spin)
         self.add_layout(row)
 
         self.src = QPlainTextEdit(block.data["latex"])
@@ -398,13 +442,12 @@ class EquationBlockWidget(BlockChrome):
         )
         self.add_widget(self.src)
 
-        self.preview_lbl = QLabel("")
-        self.preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_lbl.setMinimumHeight(40)
+        self.preview_lbl = _ScaledFormulaLabel()
         self.add_widget(self.preview_lbl)
 
         self.src.textChanged.connect(self._on_src)
         self.label_edit.textChanged.connect(self._on_label)
+        self.size_spin.valueChanged.connect(self._on_size)
         self._render_preview()
 
     def _on_src(self):
@@ -416,13 +459,22 @@ class EquationBlockWidget(BlockChrome):
         self.block.data["label"] = self.label_edit.text()
         self.changed.emit()
 
+    def _on_size(self, v: int):
+        self.block.data["size"] = v
+        self._render_preview()
+        self.changed.emit()
+
     def _render_preview(self):
         from .. import latex as latex_mod
 
         try:
-            png = latex_mod.render_latex_png(self.src.toPlainText() or "?", dpi=180, fontsize=18)
+            png = latex_mod.render_latex_png(
+                self.src.toPlainText() or "?",
+                dpi=180,
+                fontsize=int(self.block.data.get("size", 18)),
+            )
             img = QImage.fromData(png, "PNG")
-            self.preview_lbl.setPixmap(QPixmap.fromImage(img))
+            self.preview_lbl.set_source(QPixmap.fromImage(img))
         except Exception as e:
             self.preview_lbl.setText(f"⚠ {e}")
 

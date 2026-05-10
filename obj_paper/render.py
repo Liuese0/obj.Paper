@@ -192,9 +192,10 @@ def _r_paragraph(b: BlockData, st: RenderState, mode: str) -> str:
 
 def _r_equation(b: BlockData, st: RenderState, mode: str) -> str:
     src = b.data.get("latex", "")
+    fs = int(b.data.get("size", 18))
     try:
-        uri = latex.render_latex_data_uri(src, dpi=240, fontsize=18)
-        img = f"<img src='{uri}' style='max-width:80%;height:auto' alt='equation'/>"
+        uri = latex.render_latex_data_uri(src, dpi=240, fontsize=fs)
+        img = f"<img src='{uri}' style='max-width:90%;height:auto' alt='equation'/>"
     except Exception:
         img = f"<code style='font-family:\"JetBrains Mono\",monospace;font-style:italic'>{_esc(src)}</code>"
     number_html = ""
