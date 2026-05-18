@@ -146,6 +146,16 @@ class Canvas(QFrame):
 
     # ----- rebuild ---
     def _rebuild(self) -> None:
+        # Detach the floating inline toolbar first — its `_target` would
+        # otherwise hold a dangling pointer to whatever QTextEdit we're
+        # about to deleteLater(), and on Windows the next signal touch
+        # crashes the process.
+        try:
+            from .inline_toolbar import get_inline_toolbar
+
+            get_inline_toolbar().detach()
+        except Exception:
+            pass
         # tear down
         while self._inner_lay.count():
             item = self._inner_lay.takeAt(0)

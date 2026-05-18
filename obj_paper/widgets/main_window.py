@@ -640,11 +640,29 @@ class MainWindow(QMainWindow):
     # close
     # ------------------------------------------------------------------
     def closeEvent(self, e):
-        # Take one final snapshot before the process exits so the next
-        # launch resumes exactly where the user left off. The auto-session
-        # makes the "save before closing?" prompt redundant — closing
-        # never destroys work, even for unsaved documents.
-        self._save_session()
+        # Stop the recurring timers BEFORE writing the final session — a
+        # pending tick that fires after `self` is half-destroyed crashes
+        # the process on Windows.
+        for timer in (self._session_timer, self._autosave_timer):
+            try:
+                timer.stop()
+            except Exception:
+                pass
+        # Hide the floating inline toolbar so its target reference doesn't
+        # outlive the canvas' QTextEdits during shutdown.
+        try:
+            from .inline_toolbar import get_inline_toolbar
+
+            get_inline_toolbar().detach()
+        except Exception:
+            pass
+        # Take one final snapshot so the next launch resumes exactly where
+        # the user left off. The auto-session makes the "save before
+        # closing?" prompt redundant — closing never destroys work.
+        try:
+            self._save_session()
+        except Exception:
+            pass
         super().closeEvent(e)
 
     # ------------------------------------------------------------------

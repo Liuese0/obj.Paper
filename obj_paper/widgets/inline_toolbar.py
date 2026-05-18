@@ -88,21 +88,37 @@ class InlineToolbar(QFrame):
     def attach(self, edit: QTextEdit) -> None:
         if self._target is edit:
             return
-        if self._target is not None:
-            try:
-                self._target.selectionChanged.disconnect(self._maybe_show)
-            except TypeError:
-                pass
+        self._safe_detach()
         self._target = edit
-        edit.selectionChanged.connect(self._maybe_show)
+        # Auto-clear when the edit is destroyed so we never hold a dangling
+        # C++ reference (this is the crash source on Windows where Qt frees
+        # widgets eagerly between deleteLater() and the next event tick).
+        try:
+            edit.selectionChanged.connect(self._maybe_show)
+            edit.destroyed.connect(self._on_target_destroyed)
+        except RuntimeError:
+            self._target = None
 
     def detach(self) -> None:
-        if self._target is not None:
-            try:
-                self._target.selectionChanged.disconnect(self._maybe_show)
-            except TypeError:
-                pass
-            self._target = None
+        self._safe_detach()
+        self.hide()
+
+    def _safe_detach(self) -> None:
+        if self._target is None:
+            return
+        try:
+            self._target.selectionChanged.disconnect(self._maybe_show)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._target.destroyed.disconnect(self._on_target_destroyed)
+        except (TypeError, RuntimeError):
+            pass
+        self._target = None
+
+    def _on_target_destroyed(self, *_args) -> None:
+        # `destroyed` fires with the now-dead QObject; we just forget it.
+        self._target = None
         self.hide()
 
     def _maybe_show(self) -> None:
@@ -110,12 +126,18 @@ class InlineToolbar(QFrame):
         if edit is None:
             self.hide()
             return
-        cur = edit.textCursor()
-        if not cur.hasSelection():
+        try:
+            cur = edit.textCursor()
+            if not cur.hasSelection():
+                self.hide()
+                return
+            rect = edit.cursorRect(cur)
+            global_pos = edit.viewport().mapToGlobal(rect.topLeft())
+        except RuntimeError:
+            # Edit was deleted between the signal emission and our handler.
+            self._target = None
             self.hide()
             return
-        rect = edit.cursorRect(cur)
-        global_pos = edit.viewport().mapToGlobal(rect.topLeft())
         self.adjustSize()
         x = global_pos.x() - self.width() // 2
         y = global_pos.y() - self.height() - 6
@@ -123,64 +145,86 @@ class InlineToolbar(QFrame):
         self.show()
 
     # ---- formatting ops ----
+    def _alive_target(self):
+        """Return the target QTextEdit if it's still alive, else None.
+
+        Every formatting op routes through this so a destroyed widget can
+        never reach a textCursor()/mergeCurrentCharFormat() call."""
+        edit = self._target
+        if edit is None:
+            return None
+        try:
+            edit.textCursor()  # cheap liveness check
+            return edit
+        except RuntimeError:
+            self._target = None
+            return None
+
     def _apply_format(self, fmt: QTextCharFormat) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         if not cur.hasSelection():
             return
         cur.mergeCharFormat(fmt)
-        self._target.mergeCurrentCharFormat(fmt)
+        edit.mergeCurrentCharFormat(fmt)
 
     def _toggle_bold(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         weight = QFont.Weight.Bold if cur.charFormat().fontWeight() < QFont.Weight.Bold else QFont.Weight.Normal
         fmt = QTextCharFormat()
         fmt.setFontWeight(weight)
         self._apply_format(fmt)
 
     def _toggle_italic(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         fmt = QTextCharFormat()
         fmt.setFontItalic(not cur.charFormat().fontItalic())
         self._apply_format(fmt)
 
     def _toggle_underline(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         fmt = QTextCharFormat()
         fmt.setFontUnderline(not cur.charFormat().fontUnderline())
         self._apply_format(fmt)
 
     def _toggle_strike(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         fmt = QTextCharFormat()
         fmt.setFontStrikeOut(not cur.charFormat().fontStrikeOut())
         self._apply_format(fmt)
 
     def _wrap_math(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         if not cur.hasSelection():
             return
         sel = cur.selectedText()
         cur.insertText(f"${sel}$")
 
     def _insert_link(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        url, ok = QInputDialog.getText(self._target, t("menu.link"), "URL")
+        url, ok = QInputDialog.getText(edit, t("menu.link"), "URL")
         if not ok or not url:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         if cur.hasSelection():
             text = cur.selectedText()
             cur.insertHtml(f'<a href="{url}">{text}</a>')
@@ -188,9 +232,10 @@ class InlineToolbar(QFrame):
             cur.insertHtml(f'<a href="{url}">{url}</a>')
 
     def _clear(self) -> None:
-        if not self._target:
+        edit = self._alive_target()
+        if edit is None:
             return
-        cur = self._target.textCursor()
+        cur = edit.textCursor()
         fmt = QTextCharFormat()
         fmt.setFontWeight(QFont.Weight.Normal)
         fmt.setFontItalic(False)

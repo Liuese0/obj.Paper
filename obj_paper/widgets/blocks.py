@@ -95,16 +95,23 @@ class AutoTextEdit(QTextEdit):
         QTimer.singleShot(0, self._adjust)
 
     def _adjust(self) -> None:
-        doc = self.document()
-        w = self.viewport().width()
-        if w > 0:
-            doc.setTextWidth(w)
-        line_h = QFontMetrics(self.font()).lineSpacing()
-        content_h = int(doc.size().height())
-        new_h = max(content_h + 8, line_h * self._min_lines + 8)
-        if new_h != self.height():
-            self.setFixedHeight(new_h)
-            self.updateGeometry()
+        # The QTimer.singleShot / document.contentsChanged hookups can fire
+        # after this widget has been deleteLater()'d (its Python object is
+        # still alive, but the underlying QTextEdit is gone). Touching the
+        # destroyed C++ object raises RuntimeError on Windows — swallow it.
+        try:
+            doc = self.document()
+            w = self.viewport().width()
+            if w > 0:
+                doc.setTextWidth(w)
+            line_h = QFontMetrics(self.font()).lineSpacing()
+            content_h = int(doc.size().height())
+            new_h = max(content_h + 8, line_h * self._min_lines + 8)
+            if new_h != self.height():
+                self.setFixedHeight(new_h)
+                self.updateGeometry()
+        except RuntimeError:
+            return
 
 
 def _make_serif_textedit(text: str, placeholder: str, font_size: int = 14, min_lines: int = 1) -> AutoTextEdit:
@@ -133,11 +140,23 @@ class _FocusFilter(QObject):
         self._edit = edit
 
     def eventFilter(self, obj, ev):
-        if ev.type() == QEvent.Type.FocusIn:
-            get_inline_toolbar().attach(self._edit)
-        elif ev.type() == QEvent.Type.FocusOut:
-            QTimer.singleShot(120, lambda: get_inline_toolbar().hide())
+        try:
+            if ev.type() == QEvent.Type.FocusIn:
+                get_inline_toolbar().attach(self._edit)
+            elif ev.type() == QEvent.Type.FocusOut:
+                # If the toolbar singleton has been destroyed by now (rare,
+                # during app shutdown) we just swallow the failure.
+                QTimer.singleShot(120, _safe_hide_inline_toolbar)
+        except RuntimeError:
+            pass
         return False
+
+
+def _safe_hide_inline_toolbar() -> None:
+    try:
+        get_inline_toolbar().hide()
+    except RuntimeError:
+        pass
 
 
 # ---------- TITLE ----------
