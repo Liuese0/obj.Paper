@@ -363,8 +363,27 @@ def _format_reference(e: dict, style: str, n: int) -> str:
     return f"[{n}] {author}. <em>{title}</em>. {journal}, {year}."
 
 
+# CSS unit conversion at the 96-DPI logical resolution every Qt rich-text
+# surface (QTextBrowser, QTextDocument used by QPrinter) computes against.
+MM_TO_PX = 96.0 / 25.4   # ≈ 3.7795
+PT_TO_PX = 96.0 / 72.0   # ≈ 1.3333
+
+
 # ---------- top-level ----------
-def document_to_html(doc: Document, mode: str = "preview") -> str:
+def document_to_html(
+    doc: Document,
+    mode: str = "preview",
+    preview_width: int | None = None,
+) -> str:
+    """Render a Document to HTML.
+
+    `preview_width`, when supplied in preview mode, is the available width
+    (in CSS pixels) of the host QTextBrowser viewport. The page card and
+    *every* length-bearing CSS unit (page size, margins, body font) are
+    scaled by `preview_width / actual_page_width_px` so the proportions
+    match the exported PDF — what fits on one page in the preview also
+    fits on one page in the .pdf, just shrunken.
+    """
     st = RenderState(doc.settings)
     body = "\n".join(_block_html(b, st, mode) for b in doc.blocks)
 
@@ -375,15 +394,45 @@ def document_to_html(doc: Document, mode: str = "preview") -> str:
         doc.settings.margin_bottom,
         doc.settings.margin_left,
     )
-    page_style = (
-        f"max-width:{page_w_mm}mm;min-height:{page_h_mm}mm;"
-        f"padding:{margins[0]}mm {margins[1]}mm {margins[2]}mm {margins[3]}mm;"
-        f"background:{T.SURFACE};color:{T.INK};"
-        f"font-family:{doc.settings.body_font!r}, serif;"
-        f"font-size:{doc.settings.body_size}pt;line-height:{doc.settings.line_spacing};"
-        f"box-sizing:border-box;margin:0 auto;"
-        f"box-shadow:0 18px 36px -12px rgba(44,40,32,.18), 0 2px 6px rgba(44,40,32,.06);"
-    )
+
+    if mode == "preview":
+        # Scale the entire page card so it fits the preview viewport.
+        page_w_full_px = page_w_mm * MM_TO_PX
+        target = max(180, preview_width or 300)
+        # Allow only down-scaling; never blow the page up beyond its real
+        # 100 % size even when the preview pane is wider than A4.
+        scale = min(1.0, target / page_w_full_px)
+
+        page_w_px = page_w_full_px * scale
+        page_h_px = page_h_mm * MM_TO_PX * scale
+        pad_top = margins[0] * MM_TO_PX * scale
+        pad_right = margins[1] * MM_TO_PX * scale
+        pad_bottom = margins[2] * MM_TO_PX * scale
+        pad_left = margins[3] * MM_TO_PX * scale
+        body_size_px = doc.settings.body_size * PT_TO_PX * scale
+
+        page_style = (
+            f"width:{page_w_px:.1f}px;min-height:{page_h_px:.1f}px;"
+            f"padding:{pad_top:.1f}px {pad_right:.1f}px {pad_bottom:.1f}px {pad_left:.1f}px;"
+            f"background:{T.SURFACE};color:{T.INK};"
+            f"font-family:{doc.settings.body_font!r}, serif;"
+            f"font-size:{body_size_px:.1f}px;line-height:{doc.settings.line_spacing};"
+            f"box-sizing:border-box;margin:0 auto;"
+            f"box-shadow:0 18px 36px -12px rgba(44,40,32,.18), 0 2px 6px rgba(44,40,32,.06);"
+        )
+    else:
+        # export-html / export-pdf — full-resolution mm/pt units; QPrinter
+        # and the browser print stylesheet both honor them at their real
+        # physical size.
+        page_style = (
+            f"max-width:{page_w_mm}mm;min-height:{page_h_mm}mm;"
+            f"padding:{margins[0]}mm {margins[1]}mm {margins[2]}mm {margins[3]}mm;"
+            f"background:{T.SURFACE};color:{T.INK};"
+            f"font-family:{doc.settings.body_font!r}, serif;"
+            f"font-size:{doc.settings.body_size}pt;line-height:{doc.settings.line_spacing};"
+            f"box-sizing:border-box;margin:0 auto;"
+            f"box-shadow:0 18px 36px -12px rgba(44,40,32,.18), 0 2px 6px rgba(44,40,32,.06);"
+        )
 
     if mode == "export-pdf":
         # QTextDocument-friendly: no shadow, no max-width

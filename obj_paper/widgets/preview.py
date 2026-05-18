@@ -153,10 +153,22 @@ class Preview(QFrame):
         self._schedule()
 
     def render_now(self) -> None:
-        html = render_mod.document_to_html(self._doc, mode="preview")
+        # Pass the browser's inner viewport width so render.py can scale the
+        # page card (and every font / margin inside) to fit. Subtract the
+        # 18-px left+right padding we apply in the QTextBrowser stylesheet so
+        # the card stays clear of the scrollbar gutter.
+        viewport_w = max(180, self.browser.viewport().width() - 36)
+        html = render_mod.document_to_html(self._doc, mode="preview", preview_width=viewport_w)
         self.browser.setHtml(html)
         self._last_render_at = datetime.now(timezone.utc)
         self._update_meta()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        # Re-render with the new viewport width so the WYSIWYG scale follows
+        # the pane as the user drags the splitter. Debounced to avoid a
+        # render storm during the drag.
+        self._schedule()
 
     # ----- ---
     def _schedule(self) -> None:
