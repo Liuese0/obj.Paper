@@ -83,7 +83,11 @@ class MainWindow(QMainWindow):
 
         self.setWindowIcon(app_icon())
 
-        self._doc = starter_document()
+        # Restore the previous session if one exists. Falls back to the
+        # starter document on first launch (or after a corrupt session).
+        from ..session import load_session
+
+        self._doc = load_session() or starter_document()
         self._focus_mode = False
         self._saved_geometry: bytes | None = None
 
@@ -160,14 +164,23 @@ class MainWindow(QMainWindow):
         self._build_menus()
         self._wire_shortcuts()
 
-        # autosave
+        # Auto-session: snapshot the document to the user's app-data dir so
+        # closing without saving (or a crash) never loses work.
+        #  - 2 s after each edit (debounced), and
+        #  - every 30 s as a safety net (spec §11).
+        self._session_timer = QTimer(self)
+        self._session_timer.setSingleShot(True)
+        self._session_timer.setInterval(2000)
+        self._session_timer.timeout.connect(self._save_session)
+
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setInterval(AUTOSAVE_MS)
-        self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_timer.timeout.connect(self._save_session)
         self._autosave_timer.start()
 
         # connections
         self._doc.changed.connect(self._on_doc_changed)
+        self._doc.changed.connect(self._session_timer.start)
         self._doc.dirtyChanged.connect(self._refresh_title)
         self._doc.pathChanged.connect(self._refresh_title)
         i18n().languageChanged.connect(self._retranslate)
@@ -372,6 +385,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", str(e))
         self._refresh_title()
         self._status.refresh()
+        self._save_session()  # keep session in sync with the .pw on disk
 
     def save_as(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
@@ -386,6 +400,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
         self._refresh_title()
+        self._save_session()  # keep session in sync with the .pw on disk
 
     def _maybe_save_first(self) -> bool:
         if not self._doc.dirty:
@@ -421,13 +436,13 @@ class MainWindow(QMainWindow):
             path += ".html"
         ExportDialog(self._doc, "html", path, parent=self).exec()
 
-    def _autosave(self) -> None:
-        if not self._doc.dirty or not self._doc.path:
-            return
-        try:
-            self._doc.save(self._doc.path + ".autosave")
-        except Exception:
-            pass
+    def _save_session(self) -> None:
+        """Persist the current document to the user's session file so the
+        next launch can restore it — works even when the document has
+        never been saved to a `.pw`."""
+        from ..session import save_session
+
+        save_session(self._doc)
 
     # ------------------------------------------------------------------
     # editor commands
@@ -625,9 +640,11 @@ class MainWindow(QMainWindow):
     # close
     # ------------------------------------------------------------------
     def closeEvent(self, e):
-        if not self._maybe_save_first():
-            e.ignore()
-            return
+        # Take one final snapshot before the process exits so the next
+        # launch resumes exactly where the user left off. The auto-session
+        # makes the "save before closing?" prompt redundant — closing
+        # never destroys work, even for unsaved documents.
+        self._save_session()
         super().closeEvent(e)
 
     # ------------------------------------------------------------------
