@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         m_file = mb.addMenu(t("menu.file"))
         self._add(m_file, "menu.new", QKeySequence.StandardKey.New, self.new_document)
         self._add(m_file, "menu.open", QKeySequence.StandardKey.Open, self.open_document)
+        self._add(m_file, "menu.import_pdf", QKeySequence("Ctrl+I"), self.import_pdf)
         self._add(m_file, "menu.save", QKeySequence.StandardKey.Save, self.save)
         self._add(m_file, "menu.save_as", QKeySequence.StandardKey.SaveAs, self.save_as)
         m_file.addSeparator()
@@ -334,6 +335,32 @@ class MainWindow(QMainWindow):
             self._refresh_title()
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def import_pdf(self) -> None:
+        """Open an existing PDF and turn it into an editable obj.Paper document.
+
+        Text extraction is best-effort: born-digital PDFs come through
+        cleanly, scanned PDFs trigger an error message instead of producing
+        an empty document."""
+        if not self._maybe_save_first():
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, t("menu.import_pdf"), "", "PDF (*.pdf);;All files (*)"
+        )
+        if not path:
+            return
+        try:
+            from ..pdf_import import import_pdf
+
+            new_doc = import_pdf(path)
+            # Imported docs aren't a .pw yet — keep the path empty so Save
+            # forces Save-As and the user picks a .pw destination.
+            self._doc.replace_with(new_doc)
+            self._doc.set_path(None)
+            self._doc.set_dirty(True)
+            self._refresh_title()
+        except Exception as e:
+            QMessageBox.critical(self, t("menu.import_pdf"), str(e))
 
     def save(self) -> None:
         if not self._doc.path:
