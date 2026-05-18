@@ -40,7 +40,9 @@ hiddenimports = [
 ]
 
 # Don't drag along stuff we don't use — keeps the bundle inside the 80–120 MB
-# range spec.md §18 promises.
+# range spec.md §18 promises. NOTE: `unittest` cannot be excluded — pyparsing
+# (a matplotlib dependency) imports `pyparsing.testing` which in turn imports
+# `unittest`, and freezing the app without it crashes at import time.
 excludes = [
     "tkinter",
     "PyQt5",
@@ -53,9 +55,6 @@ excludes = [
     "scipy",
     "pandas",
     "sympy",
-    "test",
-    "tests",
-    "unittest",
 ]
 
 block_cipher = None
