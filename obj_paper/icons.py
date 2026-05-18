@@ -242,9 +242,17 @@ def _find_brand_png() -> str | None:
         os.path.join(here, "..", "obj.Paper Icon 64.png"),
         os.path.join(os.getcwd(), "obj.Paper Icon 64.png"),
     ]
-    # PyInstaller / frozen apps unpack data next to sys.executable
+    # PyInstaller / frozen apps: data files land in different places
+    # depending on build mode:
+    #  - one-file  → unpacked into sys._MEIPASS (temp dir)
+    #  - one-folder (PyInstaller 6.x) → next to exe under `_internal/`
     if getattr(sys, "frozen", False):
-        candidates.append(os.path.join(os.path.dirname(sys.executable), "obj.Paper Icon 64.png"))
+        exe_dir = os.path.dirname(sys.executable)
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.append(os.path.join(meipass, "obj.Paper Icon 64.png"))
+        candidates.append(os.path.join(exe_dir, "obj.Paper Icon 64.png"))
+        candidates.append(os.path.join(exe_dir, "_internal", "obj.Paper Icon 64.png"))
     for p in candidates:
         if os.path.isfile(p):
             return os.path.abspath(p)

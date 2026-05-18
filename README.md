@@ -57,6 +57,50 @@ sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1
 
 ---
 
+## Build a standalone binary (Windows / macOS)
+
+`scripts/build.py` drives PyInstaller in one-folder mode and packages the
+output as `obj.Paper-windows.zip` or `obj.Paper-macos.dmg` (matches
+spec.md §18).
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+python scripts/build.py --clean
+```
+
+Outputs land under `dist/`:
+
+| Host | Output |
+|------|--------|
+| Windows | `dist/obj.Paper/obj.Paper.exe` (one-folder) and `dist/obj.Paper-windows.zip` |
+| macOS   | `dist/obj.Paper.app` (one-folder bundle) and `dist/obj.Paper-macos.dmg` |
+| Linux   | `dist/obj.Paper/obj.Paper` — smoke build only, not part of the v1.0 release matrix |
+
+The build script auto-converts `obj.Paper Icon 64.png` into `.ico` /
+`.icns` via Pillow before invoking PyInstaller, so the .exe and .app
+get the right native icon resource baked in.
+
+### macOS Gatekeeper
+
+The .app bundle isn't code-signed for v1.0 (spec §18). First-run users
+have to unblock it manually:
+
+```bash
+xattr -d com.apple.quarantine "/Applications/obj.Paper.app"
+```
+
+…or right-click → Open → confirm.
+
+### GitHub Actions
+
+`.github/workflows/build.yml` builds both platforms on every tag push
+(`v*`) — `windows-latest` and `macos-latest` runners run the same
+`scripts/build.py` and attach the artifacts to a GitHub Release. Trigger
+manually with **Run workflow** on the Actions tab if you need a build
+without tagging.
+
+---
+
 ## Project layout
 
 ```

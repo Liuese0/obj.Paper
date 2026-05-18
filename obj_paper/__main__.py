@@ -6,9 +6,12 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-from . import __version__, theme as T
-from .icons import app_icon
-from .widgets.main_window import MainWindow
+# Absolute imports so this file works both as `python -m obj_paper` (where
+# the package context is set up) AND as PyInstaller's frozen top-level
+# script (where there's no parent package and relative imports break).
+from obj_paper import __version__, theme as T
+from obj_paper.icons import app_icon
+from obj_paper.widgets.main_window import MainWindow
 
 
 def _register_windows_app_id() -> None:
